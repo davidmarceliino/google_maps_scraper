@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buscador de Empresas - Google Maps</title>
+  <style>
+    :root {
+      --bg: #0f1115; --panel: #181b22; --line: #2a2f3a;
+      --text: #e6e9ef; --muted: #8b93a3; --accent: #1f6aa5;
+      --green: #25d366; --green-d: #1e6b3a; --red: #8b2e2e; --red-h: #a83838;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+    }
+    .wrap { max-width: 1320px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 20px; margin: 0 0 12px; }
+    h1 small { color: var(--muted); font-weight: 400; font-size: 13px; }
+    .card {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 10px; padding: 14px; margin-bottom: 12px;
+    }
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 10px 14px;
+    }
+    .field label {
+      display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px;
+    }
+    .field input {
+      width: 100%; background: #0d0f14; color: var(--text);
+      border: 1px solid var(--line); border-radius: 8px;
+      padding: 8px 10px; font-size: 14px; outline: none;
+    }
+    .field input:focus { border-color: var(--accent); }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+    .check { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+    button {
+      border: 0; border-radius: 8px; padding: 9px 14px;
+      font-size: 13px; color: #fff; cursor: pointer;
+    }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 7px; }
+    #btnStart { background: var(--green-d); } #btnStart:hover:not(:disabled) { filter: brightness(1.15); }
+    #btnStop  { background: var(--red); }     #btnStop:hover:not(:disabled)  { filter: brightness(1.15); }
+    .btn-export { background: var(--accent); }
+    .btn-wa { background: var(--green); }
+    .btn-wa:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-ghost { background: #333a47; } .btn-ghost:hover:not(:disabled) { background: #3f4756; }
+    .prog {
+      flex: 1; min-width: 150px; height: 10px;
+      background: #0d0f14; border: 1px solid var(--line);
+      border-radius: 6px; overflow: hidden;
+    }
+    #progFill { height: 100%; width: 0%; background: var(--accent); transition: width .3s; }
+    .counters { font-size: 13px; color: var(--muted); white-space: nowrap; }
+    #status { font-size: 13px; }
+    .table-box { max-height: 560px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      position: sticky; top: 0; background: #232833; color: #fff;
+      text-align: left; padding: 8px 10px; white-space: nowrap; z-index: 2;
+    }
+    tbody td { padding: 6px 10px; border-top: 1px solid var(--line); vertical-align: middle; }
+    tbody tr:hover { background: #1d2129; }
+    tbody tr.st-respondeu { background: #16241b; }
+    tbody tr.st-contatado { background: #1e232d; }
+    a { color: var(--accent); text-decoration: none; }
+    .wa-link { color: var(--green); font-weight: 600; }
+    .badge { font-size: 12px; font-weight: 700; }
+    .badge.v { color: var(--green); } .badge.x { color: #ff6b6b; }
+    .act-cell { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    select.status-sel {
+      background: #0d0f14; color: var(--text);
+      border: 1px solid var(--line); border-radius: 6px;
+      padding: 4px 4px; font-size: 12px; width: 105px;
+    }
+    .chip {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 11px; font-weight: 600;
+    }
+    .chip.ok { background: rgba(37,211,102,.18); color: var(--green); }
+    .chip.nook { background: rgba(255,107,107,.18); color: #ff6b6b; }
+    .chip.warn { background: #3f3317; color: #d9a741; }
+    .modal-back {
+      position: fixed; inset: 0; background: rgba(0,0,0,.65);
+      display: none; align-items: center; justify-content: center; z-index: 100;
+    }
+    .modal-card {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; padding: 20px 24px; max-width: 360px; text-align: center;
+    }
+    .modal-card img { width: 240px; height: 240px; background: #fff; border-radius: 8px; margin: 10px 0; }
+    .hint { font-size: 12px; color: var(--muted); }
+    #waBadge { font-size: 13px; font-weight: 600; }
+    #waBadge.conn { color: var(--green); } #waBadge.warn { color: #d9a741; } #waBadge.bad { color: #ff6b6b; }
+
+    /* ---------- responsivo ---------- */
+    @media (max-width: 720px) {
+      .row > span[style*="flex:1"] { display: none; }
+      #status { flex: 1 1 100%; }
+      .prog { flex: 1 1 100%; min-width: 0; order: 10; }
+      .counters { white-space: normal; }
+      #fListName, #selLists { flex: 1 1 100%; width: 100% !important; }
+      .table-box { max-height: 60vh; }
+    }
+    @media (max-width: 520px) {
+      .wrap { padding: 10px; }
+      .card { padding: 12px; border-radius: 8px; }
+      .fields { grid-template-columns: 1fr; }
+      h1 { font-size: 17px; }
+      h1 small { display: block; margin-top: 4px; }
+      .row { gap: 8px; }
+      button { font-size: 13px; }
+      .modal-card { max-width: 92vw; padding: 16px; }
+      .modal-card img { width: 76vw; max-width: 240px; height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Buscador de Empresas no Google Maps
+      <small>coleta dados públicos · filtra somente empresas com telefone</small>
+    </h1>
+
+    <div class="card">
+      <div class="fields">
+        <div class="field"><label>Nome da empresa</label><input id="fNome" type="text" placeholder="Ex.: Churrascaria"></div>
+        <div class="field"><label>Segmento / Categoria</label><input id="fCategoria" type="text" placeholder="Ex.: Restaurantes"></div>
+        <div class="field"><label>Cidade ou região</label><input id="fCidade" type="text" placeholder="Ex.: Campinas"></div>
+        <div class="field"><label>Palavra-chave</label><input id="fPalavra" type="text" placeholder="Opcional"></div>
+        <div class="field"><label>Quantidade máxima</label><input id="fQtd" type="number" value="30" min="1" max="500"></div>
+        <div class="field"><label>Mensagem do WhatsApp <span class="hint">({nome} {cidade} {telefone})</span></label><input id="fWaMsg" type="text" value="Olá {nome}! Vi seu contato pelo Google Maps. Gostaria de saber mais sobre seus serviços."></div>
+      </div>
+      <div class="row">
+        <label class="check"><input id="fPhone" type="checkbox" checked> Somente com telefone</label>
+        <label class="check"><input id="fAccumulate" type="checkbox"> Acumular nas buscas anteriores</label>
+        <button id="btnStart">Iniciar busca</button>
+        <button id="btnStop" disabled>Parar busca</button>
+        <span class="counters" id="counters">Encontrados: 0 &nbsp; Processados: 0</span>
+        <div class="prog"><div id="progFill"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <span id="status">Pronto para buscar.</span>
+        <span style="flex:1"></span>
+        <span id="waBadge">WhatsApp: —</span>
+        <button class="btn-ghost btn-sm" id="btnWaConnect">Conectar WhatsApp</button>
+        <button class="btn-sm" id="btnVerifyAll" disabled>Verificar pendentes</button>
+        <button class="btn-ghost btn-sm" id="btnLimpar">Limpar tabela</button>
+        &nbsp;
+        <button class="btn-export btn-sm" id="btnXlsx" disabled>Exportar Excel</button>
+        <button class="btn-export btn-sm" id="btnCsv" disabled>Exportar CSV</button>
+      </div>
+      <div class="row">
+        <label class="hint" style="margin:0">Listas salvas:</label>
+        <input id="fListName" type="text" placeholder="Nome da lista" style="width:200px;background:#0d0f14;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none">
+        <button class="btn-ghost btn-sm" id="btnSaveList">Salvar lista</button>
+        <button class="btn-ghost btn-sm" id="btnSaveMerge" title="Adiciona os contatos a uma lista já existente com esse nome (remove duplicados por telefone)">Mesclar</button>
+        <span style="flex:1"></span>
+        <select id="selLists" style="background:#0d0f14;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px"></select>
+        <button class="btn-ghost btn-sm" id="btnLoadList">Carregar</button>
+        <button class="btn-ghost btn-sm" id="btnDelList" title="Apagar a lista selecionada">Apagar</button>
+      </div>
+      <div class="table-box">
+        <table>
+          <thead><tr id="headRow"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-back" id="waModal">
+    <div class="modal-card">
+      <h3 style="margin:0 0 4px">Conectar WhatsApp Web</h3>
+      <p class="hint">1. Abra o WhatsApp no celular e toque em "Aparelhos conectados" (link) &gt; "Conectar um aparelho".<br>
+      2. Aponte a câmera para o QR Code abaixo. Isso é feito uma única vez.</p>
+      <img id="waQr" alt="QR Code do WhatsApp">
+      <p class="hint" id="waQrMsg">Aguardando leitura...</p>
+      <button class="btn-ghost" id="btnWaClose">Fechar</button>
+    </div>
+  </div>
+
+  <script>
+    const COLS = ["Nome", "Telefone", "Endereço", "Cidade", "Estado", "CEP", "Site", "Google Maps"];
+    const FIELDS = {
+      "Nome": "name", "Telefone": "phone", "Endereço": "address",
+      "Cidade": "city", "Estado": "state", "CEP": "cep",
+      "Site": "website", "Google Maps": "google_maps",
+    };
+
+    const $id = (i) => document.getElementById(i);
+
+    let taskId = null;
+    let timer = null;
+    let rendered = 0;
+    let leads = [];
+    let leadByKey = {};
+    let rowEls = {};
+    let seenPhones = new Set();
+    let meta = loadMeta();
+    let waState = "idle";
+    let waModalTimer = null;
+
+    document.addEventListener("DOMContentLoaded", refreshWaUI({status:"idle",error:""}));
+
+    for (const c of COLS) {
+      const th = document.createElement("th");
+      th.textContent = c;
+      $id("headRow").appendChild(th);
+    }
+    const thSt = document.createElement("th");
+    thSt.textContent = "Status";
+    $id("headRow").appendChild(thSt);
+    const thWa = document.createElement("th");
+    thWa.textContent = "WhatsApp";
+    $id("headRow").appendChild(thWa);
+
+    // ------------------------------------------------------------- helpers
+
+    function phoneKey(p) {
+      let d = (p || "").replace(/\D/g, "");
+      if (!d) return "";
+      return d.length >= 12 && d.startsWith("55") ? d : "55" + d;
+    }
+
+    function loadMeta() {
+      try {
+        return JSON.parse(localStorage.getItem("gm_meta") || "{}");
+      } catch (e) { return {}; }
+    }
+    function saveMeta() {
+      try { localStorage.setItem("gm_meta", JSON.stringify(meta)); } catch (e) {}
+    }
+
+    function waMsg(lead) {
+      const t = $id("fWaMsg").value.trim() ||
+        "Olá! Vi seu contato pelo Google Maps. Gostaria de saber mais sobre seus serviços.";
+      return t
+        .replace(/\{nome\}/g, lead.name || "")
+        .replace(/\{cidade\}/g, lead.city || "")
+        .replace(/\{telefone\}/g, lead.phone || "");
+    }
+
+    function waLink(lead) {
+      const digits = phoneKey(lead.phone);
+      if (!digits) return null;
+      return "https://wa.me/" + digits + "?text=" + encodeURIComponent(waMsg(lead));
+    }
+
+    // ------------------------------------------------------------- render
+
+    function setRunning(run) {
+      $id("btnStart").disabled = run;
+      $id("btnStop").disabled = !run;
+    }
+
+    function cellText(td, value, isLink) {
+      if (isLink && value) {
+        const a = document.createElement("a");
+        a.href = value; a.target = "_blank"; a.rel = "noopener"; a.textContent = value;
+        td.appendChild(a);
+      } else {
+        td.textContent = value || "";
+      }
+    }
+
+    function actionCell(row, key) {
+      const td = document.createElement("td");
+      const m = meta[key] || {};
+      const box = document.createElement("div");
+      box.className = "act-cell";
+      const link = waLink(row);
+
+      if (link) {
+        const a = document.createElement("a");
+        a.className = "wa-link";
+        a.href = link; a.target = "_blank"; a.rel = "noopener";
+        a.textContent = "Enviar";
+        if (m.checked && m.valid === false) {
+          a.style.textDecoration = "line-through";
+          a.title = "Número sem WhatsApp confirmado";
+        }
+        box.appendChild(a);
+      }
+
+      if (link && !m.checked) {
+        const b = document.createElement("button");
+        b.className = "btn-wa btn-sm";
+        b.textContent = "Verificar";
+        b.onclick = (ev) => { ev.preventDefault(); verifyPhone(row, b); };
+        box.appendChild(b);
+      }
+
+      if (m.checked) {
+        const chip = document.createElement("span");
+        chip.className = "chip " + (m.valid ? "ok" : "nook");
+        chip.textContent = m.valid ? "✓ tem WhatsApp" : "✗ sem WhatsApp";
+        box.appendChild(chip);
+      } else if (link) {
+        const chip = document.createElement("span");
+        chip.className = "chip warn";
+        chip.textContent = "não verificado";
+        box.appendChild(chip);
+      }
+
+      td.appendChild(box);
+      return td;
+    }
+
+    function statusCell(key) {
+      const td = document.createElement("td");
+      const sel = document.createElement("select");
+      sel.className = "status-sel";
+      for (const [v, label] of [["novo", "Novo"], ["contatado", "Contatado"], ["respondeu", "Respondeu"]]) {
+        const o = document.createElement("option");
+        o.value = v; o.textContent = label;
+        sel.appendChild(o);
+      }
+      const cur = (meta[key] || {}).status || "novo";
+      sel.value = cur;
+      sel.onchange = () => {
+        meta[key] = Object.assign({}, meta[key], { status: sel.value });
+        saveMeta();
+        if (rowEls[key]) rowEls[key].className = "st-" + sel.value;
+      };
+      td.appendChild(sel);
+      return td;
+    }
+
+    function appendRow(r) {
+      const key = phoneKey(r.phone);
+      if (!key || seenPhones.has(key)) return;
+      seenPhones.add(key);
+      leads.push(r);
+      leadByKey[key] = r;
+
+      const tr = document.createElement("tr");
+      const st = (meta[key] || {}).status || "novo";
+      tr.className = "st-" + st;
+
+      for (const c of COLS) {
+        const td = document.createElement("td");
+        cellText(td, r[FIELDS[c]], c === "Site" || c === "Google Maps");
+        tr.appendChild(td);
+      }
+      tr.appendChild(statusCell(key));
+      tr.appendChild(actionCell(r, key));
+
+      $id("tbody").appendChild(tr);
+      rowEls[key] = tr;
+      refreshExport();
+    }
+
+    function refreshRow(key) {
+      const tr = rowEls[key];
+      if (!tr) return;
+      const r = leadByKey[key];
+      if (!r) return;
+      tr.replaceChild(actionCell(r, key), tr.lastChild);
+    }
+
+    function refreshExport() {
+      const on = leads.length > 0;
+      $id("btnXlsx").disabled = !on;
+      $id("btnCsv").disabled = !on;
+    }
+
+    function buildQuery() {
+      const parts = [
+        $id("fNome").value.trim(),
+        $id("fCategoria").value.trim(),
+        $id("fPalavra").value.trim(),
+      ].filter(Boolean);
+      const cidade = $id("fCidade").value.trim();
+      if (cidade) parts.push("em " + cidade);
+      return parts.join(" ");
+    }
+
+    // ------------------------------------------------------------- busca
+
+    function start() {
+      if (timer) { clearInterval(timer); timer = null; }
+      const query = buildQuery();
+      if (!query) { alert("Preencha ao menos um dos campos para buscar."); return; }
+      const qtd = parseInt($id("fQtd").value, 10) || 30;
+
+      if (!$id("fAccumulate").checked) {
+        leads = []; leadByKey = {}; rowEls = {}; seenPhones = new Set();
+        rendered = 0;
+        $id("tbody").innerHTML = "";
+        refreshExport();
+      }
+
+      fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: query,
+          max_results: qtd,
+          only_with_phone: $id("fPhone").checked,
+        }),
+      })
+        .then(r => r.json().then(d => ({ ok: r.ok, d })))
+        .then(({ ok, d }) => {
+          if (!ok) { alert(d.error || "Falha ao iniciar a busca."); return; }
+          taskId = d.task_id;
+          rendered = 0;
+          $id("progFill").style.width = "0%";
+          setRunning(true);
+          poll();
+          timer = setInterval(poll, 1200);
+        })
+        .catch(err => { $id("status").textContent = "Erro de conexão: " + err; });
+    }
+
+    function poll() {
+      if (!taskId) return;
+      fetch("/api/jobs/" + taskId)
+        .then(r => r.json())
+        .then(d => {
+          if (d.error) {
+            clearInterval(timer); timer = null;
+            setRunning(false);
+            $id("status").textContent = d.error;
+            return;
+          }
+          $id("counters").textContent =
+            "Encontrados: " + leads.length + "    Processados: " + d.processed;
+          $id("status").textContent = d.status || "";
+          const max = d.max_results || 1;
+          $id("progFill").style.width =
+            Math.min(100, (d.processed / max) * 100).toFixed(1) + "%";
+          for (let i = rendered; i < d.results.length; i++) appendRow(d.results[i]);
+          rendered = d.results.length;
+          refreshExport();
+          if (!d.running) {
+            clearInterval(timer); timer = null;
+            setRunning(false);
+          }
+        })
+        .catch(err => { $id("status").textContent = "Erro de conexão com o servidor: " + err; });
+    }
+
+    function stop() {
+      if (!taskId) return;
+      fetch("/api/jobs/" + taskId + "/stop", { method: "POST" }).catch(() => {});
+      $id("status").textContent = "Interrompendo busca...";
+    }
+
+    // ------------------------------------------------------------- WhatsApp
+
+    async function refreshWaUI(initial) {
+      try {
+        const d = initial || await (await fetch("/api/whatsapp/status")).json();
+        waState = d.status || "idle";
+        const badge = $id("waBadge");
+        badge.className = "";
+        if (waState === "connected") {
+          badge.textContent = "WhatsApp: conectado";
+          badge.classList.add("conn");
+          $id("btnVerifyAll").disabled = false;
+        } else if (waState === "waiting_scan") {
+          badge.textContent = "WhatsApp: aguardando QR Code";
+          badge.classList.add("warn");
+          $id("btnVerifyAll").disabled = true;
+          openWaModal();
+        } else if (waState === "error") {
+          badge.textContent = "WhatsApp: erro (" + (d.error || "") + ")";
+          badge.classList.add("bad");
+          $id("btnVerifyAll").disabled = true;
+        } else {
+          badge.textContent = "WhatsApp: desconectado";
+          $id("btnVerifyAll").disabled = true;
+        }
+      } catch (e) {
+        $id("waBadge").textContent = "WhatsApp: offline";
+      }
+    }
+
+    function openWaModal() {
+      showQr();
+      $id("waModal").style.display = "flex";
+      $id("waQrMsg").textContent = "Lendo QR Code. Após conectar, esta janela fecha sozinha.";
+      if (waModalTimer) clearInterval(waModalTimer);
+      waModalTimer = setInterval(() => {
+        fetch("/api/whatsapp/status")
+          .then(r => r.json())
+          .then(d => {
+            if (d.status === "connected") closeWaModal();
+          })
+          .catch(() => {});
+        showQr();
+      }, 3000);
+    }
+
+    function closeWaModal() {
+      if (waModalTimer) { clearInterval(waModalTimer); waModalTimer = null; }
+      $id("waModal").style.display = "none";
+      refreshWaUI();
+    }
+
+    function showQr() {
+      $id("waQr").src = "/api/whatsapp/qr?t=" + Date.now();
+    }
+
+    $id("btnWaConnect").addEventListener("click", () => {
+      if (waState === "waiting_scan") { showQr(); $id("waModal").style.display = "flex"; return; }
+      fetch("/api/whatsapp/open", { method: "POST" })
+        .then(r => r.json())
+        .then(d => {
+          if (d.status === "waiting_scan") openWaModal();
+          else refreshWaUI(d);
+        })
+        .catch(err => alert("Falha ao conectar: " + err));
+    });
+
+    $id("btnWaClose").addEventListener("click", closeWaModal);
+
+    $id("btnVerifyAll").addEventListener("click", async () => {
+      const pending = leads.filter(l => phoneKey(l.phone) && !(meta[phoneKey(l.phone)] || {}).checked);
+      if (!pending.length) { alert("Todos os telefones já foram verificados."); return; }
+      if (waState !== "connected") { alert("Conecte o WhatsApp primeiro."); return; }
+      $id("btnVerifyAll").disabled = true;
+      for (let i = 0; i < pending.length; i += 10) {
+        const chunk = pending.slice(i, i + 10);
+        $id("status").textContent = "Verificando WhatsApp (" + Math.min(i + 10, pending.length) + "/" + pending.length + ")...";
+        const res = await callCheck(chunk.map(l => l.phone));
+        if (!res || res.need_login) {
+          closeWaModal();
+          alert("Sessão do WhatsApp expirada. Conecte novamente.");
+          break;
+        }
+        if (res.results) res.results.forEach(applyResult);
+      }
+      $id("btnVerifyAll").disabled = false;
+      $id("status").textContent = "Verificação concluída.";
+    });
+
+    async function verifyPhone(lead, btn) {
+      if (waState !== "connected") {
+        $id("btnWaConnect").click();
+        alert("Conecte o WhatsApp antes de verificar.");
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "..." ;
+      const res = await callCheck([lead.phone]);
+      btn.disabled = false;
+      if (!res || res.need_login) {
+        openWaModal();
+        return;
+      }
+      if (res.results) res.results.forEach(applyResult);
+    }
+
+    async function callCheck(phones) {
+      try {
+        const r = await fetch("/api/whatsapp/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phones: phones }),
+        });
+        return await r.json();
+      } catch (e) { return null; }
+    }
+
+    function applyResult(r) {
+      const key = phoneKey(r.phone);
+      if (!key) return;
+      meta[key] = Object.assign({}, meta[key], {
+        checked: true,
+        valid: !!r.valid,
+        status: (meta[key] || {}).status || "novo",
+      });
+      saveMeta();
+      if (rowEls[key]) {
+        // mantém o select de status, atualiza a célula de ações
+        const tr = rowEls[key];
+        const statusTd = tr.children[tr.children.length - 2];
+        tr.replaceChild(actionCell(leadByKey[key], key), tr.lastChild);
+        tr.insertBefore(statusTd, tr.lastChild);
+      }
+    }
+
+    // ------------------------------------------------------------- listas salvas
+
+    function renderRows(rows) {
+      if (timer) { clearInterval(timer); timer = null; }
+      taskId = null;
+      setRunning(false);
+      leads = []; leadByKey = {}; rowEls = {}; seenPhones = new Set();
+      $id("tbody").innerHTML = "";
+      (rows || []).forEach(appendRow);
+      rendered = leads.length;
+      refreshExport();
+      $id("status").textContent = "Lista carregada: " + leads.length + " contato(s).";
+    }
+
+    async function loadLists() {
+      try {
+        const d = await (await fetch("/api/lists")).json();
+        const sel = $id("selLists");
+        const prev = sel.value;
+        sel.innerHTML = "";
+        (d.lists || []).forEach(l => {
+          const o = document.createElement("option");
+          o.value = l.name; o.textContent = l.name + " (" + l.count + ")";
+          sel.appendChild(o);
+        });
+        if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+      } catch (e) {}
+    }
+
+    async function saveList(merge) {
+      const name = $id("fListName").value.trim();
+      if (!name) { alert("Digite um nome para a lista."); $id("fListName").focus(); return; }
+      if (!leads.length) { alert("A tabela está vazia. Nada para salvar."); return; }
+      try {
+        const r = await fetch("/api/lists/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name, rows: leads, merge: merge }),
+        });
+        const d = await r.json();
+        if (!r.ok) { alert(d.error || "Falha ao salvar."); return; }
+        $id("status").textContent = "Lista salva: '" + d.name + "' com " + d.count + " contato(s).";
+        loadLists();
+      } catch (e) { alert("Erro ao salvar: " + e); }
+    }
+
+    async function loadSelectedList() {
+      const name = $id("selLists").value;
+      if (!name) { alert("Selecione uma lista salva."); return; }
+      try {
+        const d = await (await fetch("/api/lists/" + encodeURIComponent(name))).json();
+        if (d.error) { alert(d.error); return; }
+        renderRows(d.rows || []);
+      } catch (e) { alert("Erro ao carregar: " + e); }
+    }
+
+    async function deleteSelectedList() {
+      const name = $id("selLists").value;
+      if (!name) return;
+      if (!confirm("Apagar a lista '" + name + "'?")) return;
+      try {
+        await fetch("/api/lists/" + encodeURIComponent(name), { method: "DELETE" });
+        loadLists();
+        $id("status").textContent = "Lista apagada.";
+      } catch (e) { alert("Erro ao apagar: " + e); }
+    }
+
+    // ------------------------------------------------------------- export
+
+    function downloadBlob(blob, fname) {
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = u; a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(u);
+    }
+
+    function exportData(fmt) {
+      if (!leads.length) return;
+      const ext = fmt === "csv" ? ".csv" : ".xlsx";
+      fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows: leads, format: fmt }),
+      })
+        .then(async r => {
+          if (!r.ok) {
+            const j = await r.json().catch(() => ({}));
+            alert(j.error || "Falha ao exportar.");
+            return null;
+          }
+          return r.blob();
+        })
+        .then(blob => { if (blob) downloadBlob(blob, "empresas_google_maps" + ext); })
+        .catch(err => alert("Erro ao exportar: " + err));
+    }
+
+    // ------------------------------------------------------------- eventos
+
+    $id("btnStart").addEventListener("click", start);
+    $id("btnStop").addEventListener("click", stop);
+    $id("btnXlsx").addEventListener("click", () => exportData("excel"));
+    $id("btnCsv").addEventListener("click", () => exportData("csv"));
+    $id("btnLimpar").addEventListener("click", () => {
+      leads = []; leadByKey = {}; rowEls = {}; seenPhones = new Set();
+      rendered = 0;
+      $id("tbody").innerHTML = "";
+      meta = {}; saveMeta();
+      refreshExport();
+      $id("status").textContent = "Tabela limpa.";
+    });
+
+    $id("btnSaveList").addEventListener("click", () => saveList(false));
+    $id("btnSaveMerge").addEventListener("click", () => saveList(true));
+    $id("btnLoadList").addEventListener("click", loadSelectedList);
+    $id("btnDelList").addEventListener("click", deleteSelectedList);
+
+    refreshWaUI();
+    loadLists();
+  </script>
+</body>
+</html>

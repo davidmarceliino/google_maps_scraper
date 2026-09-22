@@ -1,0 +1,9 @@
+﻿whatsapp_profile/
+Buscador_Google_Maps.exe
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+dist/
+build/
