@@ -48,6 +48,7 @@
     #btnStop  { background: var(--red); }     #btnStop:hover:not(:disabled)  { filter: brightness(1.15); }
     .btn-export { background: var(--accent); }
     .btn-wa { background: var(--green); }
+    a.btn-wa { display: inline-block; color: #fff; text-decoration: none; white-space: nowrap; }
     .btn-wa:hover:not(:disabled) { filter: brightness(1.1); }
     .btn-ghost { background: #333a47; } .btn-ghost:hover:not(:disabled) { background: #3f4756; }
     .prog {
@@ -151,7 +152,7 @@
         <span style="flex:1"></span>
         <span id="waBadge">WhatsApp: —</span>
         <button class="btn-ghost btn-sm" id="btnWaConnect">Conectar WhatsApp</button>
-        <button class="btn-sm" id="btnVerifyAll" disabled>Verificar pendentes</button>
+        <button class="btn-sm" id="btnVerifyAll" disabled hidden>Verificar pendentes</button>
         <button class="btn-ghost btn-sm" id="btnLimpar">Limpar tabela</button>
         &nbsp;
         <button class="btn-export btn-sm" id="btnXlsx" disabled>Exportar Excel</button>
@@ -280,34 +281,10 @@
 
       if (link) {
         const a = document.createElement("a");
-        a.className = "wa-link";
+        a.className = "btn-wa btn-sm";
         a.href = link; a.target = "_blank"; a.rel = "noopener";
-        a.textContent = "Enviar";
-        if (m.checked && m.valid === false) {
-          a.style.textDecoration = "line-through";
-          a.title = "Número sem WhatsApp confirmado";
-        }
+        a.textContent = "Enviar mensagem";
         box.appendChild(a);
-      }
-
-      if (link && !m.checked) {
-        const b = document.createElement("button");
-        b.className = "btn-wa btn-sm";
-        b.textContent = "Verificar";
-        b.onclick = (ev) => { ev.preventDefault(); verifyPhone(row, b); };
-        box.appendChild(b);
-      }
-
-      if (m.checked) {
-        const chip = document.createElement("span");
-        chip.className = "chip " + (m.valid ? "ok" : "nook");
-        chip.textContent = m.valid ? "✓ tem WhatsApp" : "✗ sem WhatsApp";
-        box.appendChild(chip);
-      } else if (link) {
-        const chip = document.createElement("span");
-        chip.className = "chip warn";
-        chip.textContent = "não verificado";
-        box.appendChild(chip);
       }
 
       td.appendChild(box);
